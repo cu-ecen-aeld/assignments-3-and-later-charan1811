@@ -25,6 +25,7 @@ then
 			if [ $? -ne 0 ];
 			then
 				echo "Unable to create input directory path"
+				exit 1
 			else
 #Insert the input string into the newly created file
 				touch $INPUTFILE
