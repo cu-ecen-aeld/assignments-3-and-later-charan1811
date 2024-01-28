@@ -82,7 +82,6 @@ int main(int argc, char* argv[])
 	if (fd == NULL_VAL)
 	{
 		syslog(LOG_ERR, "Unable to open the file %s \n\r", file_path);
-		close_file(fd);
 		closelog();
 		return 1;
 	}
@@ -96,6 +95,13 @@ int main(int argc, char* argv[])
 		close_file(fd);
 		closelog();
 		return 1;
+	}
+	else if (bytes_count != ip_str_size)
+	{
+		syslog(LOG_ERR, "ERROR: PARTIAL WRITE: %d writing into the file %s, Input String: %s \n\r", errno, file_path, ip_str);
+                close_file(fd);
+                closelog();
+                return 1;
 	}
 
 //Logs information after successful write
