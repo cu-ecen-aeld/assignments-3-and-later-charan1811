@@ -1,4 +1,10 @@
 #include "systemcalls.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -16,6 +22,19 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+	int status;
+	status = system(cmd);
+//Check if the system call is successful and return false on failure
+	if ((status == -1))
+	{
+		return false;
+	}
+//Check exit status of the cmd and return false on failure
+	if (!WIFEXITED(status))
+	{
+		return false;
+	}
+
 
     return true;
 }
@@ -58,6 +77,40 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    pid_t pid;
+    int status;
+
+    pid = fork();
+//check the fork return status and return false on failure
+    if (pid == -1)
+    {
+	    return false;
+    }
+//check for child process and exec in the child instance with the input command
+    else if (pid == 0)
+    {
+	    execv(command[0], command);
+	    exit(1);
+    }
+//waits for child process to exit and returns false on failure
+    if (waitpid(pid, &status, 0) == -1)
+    {
+	    perror("wait PID");
+	    return false;
+    }
+//check if the child has exited normally and return false if not
+    else if (!(WIFEXITED(status)))
+    {
+	    return false;
+    }
+//check for the status after the child process has exited normally
+    else
+    {
+	    if(WEXITSTATUS(status))
+	    {
+		    return false;
+	    }
+    }
 
     va_end(args);
 
@@ -92,6 +145,49 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+
+    int status;
+    pid_t pid;
+
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+//Open a output file to redirect the messages
+    if (fd == -1)
+    {
+	    perror("OPEN");
+	    return false;
+    }
+//Create a child process and assign a new file descriptor for the output file in the child process
+    switch (pid = fork())
+    {
+	    case 0: if (dup2(fd, 1) < 0)
+		    {
+			    perror("DUP2");
+			    return false;
+		    }
+		    close(fd);
+		    execv(command[0], command);
+		    exit(1);
+            case -1: perror("FORK");
+                     return false;
+	    default: close(fd);
+    }
+//Wait on the child process to exit and return the corresponding status
+    if (waitpid(pid, &status, 0) == -1)
+    {
+            perror("wait PID");
+            return false;
+    }
+    else if (!(WIFEXITED(status)))
+    {
+            return false;
+    }
+    else
+    {
+            if(WEXITSTATUS(status))
+            {
+                    return false;
+            }
+    }
 
     va_end(args);
 
