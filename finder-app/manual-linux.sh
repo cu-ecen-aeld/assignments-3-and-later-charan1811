@@ -35,15 +35,11 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     git checkout ${KERNEL_VERSION}
 
     # TODO: Add your kernel build steps here
-    echo "starting def mrproper "
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
-    echo "starting def defconfig"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
-    echo "starting def all"
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
     #echo "starting def modules"
     #make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
-    echo "starting def dtbs"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
 fi
 
