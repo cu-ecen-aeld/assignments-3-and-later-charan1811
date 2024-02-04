@@ -35,11 +35,15 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     git checkout ${KERNEL_VERSION}
 
     # TODO: Add your kernel build steps here
+    echo "Running mrproper to remove the existing configurations!"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
+    echo "Running defconfig to configure for target ARM architecture"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
+    echo "Building the Kernel image for QEMU"
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
     #echo "starting def modules"
     #make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
+    echo "Building the device tree binary"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
 fi
 
@@ -55,6 +59,7 @@ then
 fi
 
 # TODO: Create necessary base directories
+echo "Creating necessary directories for the file system"
 mkdir ${OUTDIR}/rootfs
 cd ${OUTDIR}/rootfs
 mkdir -p home/conf
@@ -69,6 +74,7 @@ git clone git://busybox.net/busybox.git
     cd busybox
     git checkout ${BUSYBOX_VERSION}
     # TODO:  Configure busybox
+    echo "Configuring busy box"
     make distclean
     make defconfig
 else
@@ -76,6 +82,7 @@ else
 fi
 
 # TODO: Make and install busybox
+echo "Building and installing busybox"
 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 make CONFIG_PREFIX=${OUTDIR}/rootfs ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install 
 
@@ -89,14 +96,10 @@ echo "Adding library dependencies"
 # TODO: Add library dependencies to rootfs
 SYSROOT=$(${CROSS_COMPILE}gcc -print-sysroot)
 cd ${OUTDIR}/rootfs
-cp -a $SYSROOT/lib/ld-linux-aarch64.so.1 lib
-cp -a $SYSROOT/lib64/ld-2.31.so lib64
-cp -a $SYSROOT/lib64/libm.so.6 lib64
-cp -a $SYSROOT/lib64/libresolv.so.2 lib64
-cp -a $SYSROOT/lib64/libc.so.6 lib64
-cp -a $SYSROOT/lib64/libm-2.31.so lib64
-cp -a $SYSROOT/lib64/libresolv-2.31.so lib64
-cp -a $SYSROOT/lib64/libc-2.31.so lib64
+cp $SYSROOT/lib/ld-linux-aarch64.so.1 lib
+cp $SYSROOT/lib64/libm.so.6 lib64
+cp $SYSROOT/lib64/libresolv.so.2 lib64
+cp $SYSROOT/lib64/libc.so.6 lib64
 
 echo "Making device nodes"
 # TODO: Make device nodes
