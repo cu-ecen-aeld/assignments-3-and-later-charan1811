@@ -58,7 +58,7 @@ do
 	writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
 done
 
-cd 'dirname $0'
+cd "$(dirname "$0")"
 
 OUTPUTSTRING=$(finder.sh "$WRITEDIR" "$WRITESTR")
 
