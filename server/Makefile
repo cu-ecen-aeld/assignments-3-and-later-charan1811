@@ -1,7 +1,7 @@
-CC := $(CROSS_COMPILE)gcc
+CC ?= $(CROSS_COMPILE)gcc
 
-CFLAGS := -g -Wall -Werror
-LDFLAGS := -pthread -lrt
+CFLAGS ?= -g -Wall -Werror
+LDFLAGS ?= -pthread -lrt
 
 default : aesdsocket
 
