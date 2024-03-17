@@ -95,9 +95,9 @@ const char* aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, 
     if (buffer->full)
     {
     	freeptr = buffer->entry[buffer->in_offs].buffptr;
-    	if (buffer->in_offs == (AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED -1) )
+    	if (buffer->in_offs >= (AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED -1) )
     	{
-    		buffer->in_offs=0;
+    		//buffer->in_offs=0;
     		buffer->out_offs=0;
     	}
     	else
