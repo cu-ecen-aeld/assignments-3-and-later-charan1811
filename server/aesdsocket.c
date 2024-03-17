@@ -377,7 +377,7 @@ void *updatedata_thread(void *socket_node)
     	    }
 
     	    int bytes_written = 0;
-    	    int new_len = BUFF_MAX;
+    	    //int new_len = BUFF_MAX;
     	    int total_bytes_recv = 0;
     	    char *final_buffer = (char *)malloc(sizeof(char));
     	    memset(final_buffer, 0, sizeof(char));
@@ -397,7 +397,29 @@ void *updatedata_thread(void *socket_node)
     	            node->thread_status = false;
     	            goto thread_exit;
     	        }
-    	        else if (recv_bytes > 0)
+    	        
+    	        if (pthread_mutex_lock(node->log_mutex) != SUCCESS)
+    	        {
+    	            syslog(LOG_ERR, "ERROR: Failed to acquire mutex (data_thread)");
+		    node->thread_status = false;
+		    goto thread_exit;
+		}
+			
+		bytes_written = write(file_fd, final_buffer, total_bytes_recv);
+		if (bytes_written != recv_bytes)
+		{
+		    syslog(LOG_ERR, "ERROR: Failed to write data");
+		    node->thread_status = false;
+		    pthread_mutex_unlock(node->log_mutex);
+		    goto thread_exit;
+		}
+		if (pthread_mutex_unlock(node->log_mutex) != SUCCESS)
+		{
+		    syslog(LOG_ERR, "ERROR: Failed to unlock mutex (data_thread)");
+		    node->thread_status = false;
+		    goto thread_exit;
+		}
+    	        /*else if (recv_bytes > 0)
     	        {
     	            new_len += 1;
     	            char *tmp_buf = realloc(final_buffer, new_len);
@@ -412,7 +434,7 @@ void *updatedata_thread(void *socket_node)
 		    final_buffer = tmp_buf;
 		    total_bytes_recv += recv_bytes;
 		    strcat(final_buffer, buffer);
-    	        }
+    	        }*/
 
     	        // Check if new line
     	        if ((memchr(buffer, '\n', recv_bytes)) != NULL)
@@ -421,27 +443,6 @@ void *updatedata_thread(void *socket_node)
     	        }
     	    }while(!packet_complete);
     	    
-    	    if (pthread_mutex_lock(node->log_mutex) != SUCCESS)
-    	    {
-		syslog(LOG_ERR, "ERROR: Failed to acquire mutex (data_thread)");
-		node->thread_status = false;
-		goto thread_exit;
-	    }
-		
-	    bytes_written = write(file_fd, final_buffer, total_bytes_recv);
-	    if (bytes_written != recv_bytes)
-	    {
-		syslog(LOG_ERR, "ERROR: Failed to write data");
-		node->thread_status = false;
-		pthread_mutex_unlock(node->log_mutex);
-		goto thread_exit;
-	    }
-	    if (pthread_mutex_unlock(node->log_mutex) != SUCCESS)
-	    {
-	    	syslog(LOG_ERR, "ERROR: Failed to unlock mutex (data_thread)");
-		node->thread_status = false;
-		goto thread_exit;
-	    }
 	    
 	    close(file_fd);
             file_fd = open(FILE_NAME, O_RDONLY, S_IRUSR | S_IRGRP | S_IROTH);
