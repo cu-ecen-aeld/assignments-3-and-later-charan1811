@@ -79,7 +79,7 @@ void cleanup(int socketfd)
  	//remove(FILE_NAME);
  	
  	#if (USE_AESD_CHAR_DEVICE == 0)
- 	remove(FILENAME);
+ 	remove(FILE_NAME);
  	#endif
 	
  	// Close syslog
@@ -443,10 +443,10 @@ void *updatedata_thread(void *socket_node)
 	    }
 	    
 	    close(file_fd);
-            file_fd = open(FILENAME, O_RDONLY, S_IRUSR | S_IRGRP | S_IROTH);
+            file_fd = open(FILE_NAME, O_RDONLY, S_IRUSR | S_IRGRP | S_IROTH);
             if (FAILURE == file_fd)
             {
-                syslog(LOG_ERR, "Error opening %s file: %s", FILENAME, strerror(errno));  
+                syslog(LOG_ERR, "Error opening %s file: %s", FILE_NAME, strerror(errno));  
     	        syslog(LOG_ERR, "ERROR: Failed to SET file offset");
     	        node->thread_status = false;
     	        goto thread_exit;
