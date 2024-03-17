@@ -367,11 +367,11 @@ void *updatedata_thread(void *socket_node)
     	{
     	    node = (socket_data_t *)socket_node;
     	    node->thread_status = false;
-    	    file_fd = open(FILE_NAME, O_CREAT|O_RDWR|O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
+    	    file_fd = open(FILE_NAME, O_RDWR|O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
     	    if (file_fd == FAILURE)
     	    {
     	        syslog(LOG_ERR, "ERROR: Failed to create/open file %s", FILE_NAME);
-    	        perror("FAILED TO CREATE/OPEN FILE %s");
+    	        perror("FAILED TO CREATE/OPEN FILE");
     	        node->thread_status = false;
     	        goto thread_exit;
     	    }
