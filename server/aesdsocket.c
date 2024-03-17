@@ -370,7 +370,8 @@ void *updatedata_thread(void *socket_node)
     	    file_fd = open(FILE_NAME, O_CREAT|O_RDWR|O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
     	    if (file_fd == FAILURE)
     	    {
-    	        syslog(LOG_ERR, "ERROR: Failed to create/open file");
+    	        syslog(LOG_ERR, "ERROR: Failed to create/open file %s", FILE_NAME);
+    	        perror("FAILED TO CREATE/OPEN FILE %s");
     	        node->thread_status = false;
     	        goto thread_exit;
     	    }
