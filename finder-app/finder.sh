@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Author: Sai Charan Mandadi
 # Description: Finds the required string in the given input directories and prints the count of total
 #number of files and matched lines.
