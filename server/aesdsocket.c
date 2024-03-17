@@ -378,14 +378,14 @@ void *updatedata_thread(void *socket_node)
 
     	    int bytes_written = 0;
     	    //int new_len = BUFF_MAX;
-    	    int total_bytes_recv = 0;
-    	    char *final_buffer = (char *)malloc(sizeof(char));
-    	    memset(final_buffer, 0, sizeof(char));
-    	    if(final_buffer == NULL)
-    	    {
-    	    	  node->thread_status = false;
-    	         goto thread_exit;
-    	    }
+    	    //int total_bytes_recv = 0;
+    	    //char *final_buffer = (char *)malloc(sizeof(char));
+    	    //memset(final_buffer, 0, sizeof(char));
+    	    //if(final_buffer == NULL)
+    	    //{
+    	    	//  node->thread_status = false;
+    	         //goto thread_exit;
+    	    //}
     	    // Receive data till new line is found
     	    do
     	    {
@@ -405,7 +405,7 @@ void *updatedata_thread(void *socket_node)
 		    goto thread_exit;
 		}
 			
-		bytes_written = write(file_fd, final_buffer, total_bytes_recv);
+		bytes_written = write(file_fd, buffer, recv_bytes);
 		if (bytes_written != recv_bytes)
 		{
 		    syslog(LOG_ERR, "ERROR: Failed to write data");
@@ -484,11 +484,11 @@ void *updatedata_thread(void *socket_node)
             	}
             }while (send_bytes != bytes_read);
 
-            if(final_buffer != NULL)
-            {
-            	free(final_buffer);
-            	final_buffer = NULL;
-            }
+            //if(final_buffer != NULL)
+            //{
+            //	free(final_buffer);
+            //	final_buffer = NULL;
+            //}
     	}
 
 	thread_exit:
