@@ -482,7 +482,7 @@ void *updatedata_thread(void *socket_node)
                 	}
                 	node->thread_status = true;
             	}
-            }while (send_bytes != bytes_read);
+            }while (bytes_read > 0);
 
             //if(final_buffer != NULL)
             //{
