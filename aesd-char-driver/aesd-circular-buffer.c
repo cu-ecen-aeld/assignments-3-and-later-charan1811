@@ -15,7 +15,6 @@
 #endif
 
 #include "aesd-circular-buffer.h"
-#include <stdio.h>
 
 /**
  * @param buffer the buffer to search for corresponding offset.  Any necessary locking must be performed by caller.
@@ -33,7 +32,7 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
     size_t bytes_traversed = 0;
     uint8_t traverse_len = 0;
 
-    if (buffer != NULL)
+    if ((buffer != NULL) || (entry_offset_byte_rtn != NULL))
     {
     	int pos = buffer->out_offs;
     	if (buffer->full)
@@ -44,11 +43,11 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
     	{
     		if (buffer->in_offs > buffer->out_offs)
     		{
-    			traverse_len = buffer->in_offs - buffer->out_offs;
+    			traverse_len = (buffer->in_offs - buffer->out_offs);
     		}
     		else
     		{
-    			traverse_len = buffer->out_offs - buffer->in_offs;
+    			traverse_len = AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED - (buffer->out_offs - buffer->in_offs);
     		}
     		
     	}
@@ -84,40 +83,50 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 * Any necessary locking must be handled by the caller
 * Any memory referenced in @param add_entry must be allocated by and/or must have a lifetime managed by the caller.
 */
-void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
+const char* aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
     if ((buffer == NULL) || (add_entry == NULL))
     {
-    	return;
+    	return NULL;
     }
+    
+    const char* freeptr = NULL;
 
-    buffer->entry[buffer->in_offs] = *add_entry;
     if (buffer->full)
     {
-    	if (buffer->in_offs == AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED -1 )
+    	freeptr = buffer->entry[buffer->in_offs].buffptr;
+    	if (buffer->in_offs >= (AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED -1) )
     	{
-    		buffer->in_offs=0;
+    		//buffer->in_offs=0;
     		buffer->out_offs=0;
     	}
     	else
     	{
-    		buffer->in_offs += 1;
-    		buffer->out_offs = buffer->in_offs;
+    		buffer->out_offs += 1;
     	}
+    }
+    
+    buffer->entry[buffer->in_offs] = *add_entry;
+    
+    if (buffer->in_offs == AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED - 1)
+    {
+    	buffer->in_offs=0;
     }
     else
     {
-    	if (buffer->in_offs == AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED - 1)
-    	{
-    		buffer->in_offs=0;
-    		buffer->full = true;
-    	}
-    	else
-    	{
-    		buffer->in_offs += 1;
-    	}
-    	
+    	buffer->in_offs += 1;
     }
+    
+    if (buffer->in_offs == buffer->out_offs)
+    {
+    	buffer->full = true;
+    }
+    else
+    {
+    	buffer->full = false;
+    }
+    
+    return freeptr;
 }
 
 /**

@@ -24,9 +24,14 @@
 #include "queue.h"
 #include <time.h>
 
+#define USE_AESD_CHAR_DEVICE   (1)
+#if (USE_AESD_CHAR_DEVICE == 0)
+    #define FILE_NAME           "/var/tmp/aesdsocketdata"
+#elif (USE_AESD_CHAR_DEVICE == 1)
+    #define FILE_NAME           "/dev/aesdchar"
+#endif
 #define PORT         	"9000"
 #define BUFF_MAX   	1024
-const char *aesddata_file = "/var/tmp/aesdsocketdata";
 #define FAILURE	(-1)
 #define SUCCESS	(0)
 #define DELAY		(10)
@@ -71,7 +76,11 @@ void cleanup(int socketfd)
  	}
 
  	// Delete the file
- 	remove(aesddata_file);
+ 	//remove(FILE_NAME);
+ 	
+ 	#if (USE_AESD_CHAR_DEVICE == 0)
+ 	remove(FILE_NAME);
+ 	#endif
 	
  	// Close syslog
  	syslog(LOG_INFO, "Exiting...");
@@ -226,6 +235,7 @@ int socket_connect(int socketfd, char* ip_addr)
  * @Brief: updatetime_thread function updates the corresponding time stamp using mutex
  * @Param: socket_node: structure
  */
+#if (USE_AESD_CHAR_DEVICE == 0)
 void *updatetime_thread(void *socket_node)
 {	
     	if (socket_node == NULL)
@@ -287,10 +297,10 @@ void *updatetime_thread(void *socket_node)
             		goto exit;   
         	}	
         
-        	log_time_fd = open(aesddata_file, O_CREAT|O_RDWR|O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
+        	log_time_fd = open(FILE_NAME, O_CREAT|O_RDWR|O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
         	if (log_time_fd == FAILURE)
         	{
-            		syslog(LOG_ERR, "ERROR: Failed to create/open %s file", aesddata_file);
+            		syslog(LOG_ERR, "ERROR: Failed to create/open %s file", FILE_NAME);
             		status = FAILURE;
             		close(log_time_fd);
             		goto exit;
@@ -306,7 +316,7 @@ void *updatetime_thread(void *socket_node)
         	bytes_written = write(log_time_fd, timer_buff, strlen(timer_buff));
         	if (bytes_written != strlen(timer_buff))
         	{
-            		syslog(LOG_ERR, "ERROR: Failed to log timestamp to %s", aesddata_file);
+            		syslog(LOG_ERR, "ERROR: Failed to log timestamp to %s", FILE_NAME);
             		pthread_mutex_unlock(node->log_mutex);
             		status = FAILURE;
             		close(log_time_fd);
@@ -334,6 +344,7 @@ void *updatetime_thread(void *socket_node)
 	}
      	return socket_node;
 }
+#endif
 
 /**
  * @Function name: updatedata_thread
@@ -356,10 +367,11 @@ void *updatedata_thread(void *socket_node)
     	{
     	    node = (socket_data_t *)socket_node;
     	    node->thread_status = false;
-    	    file_fd = open(aesddata_file, O_CREAT|O_RDWR|O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
+    	    file_fd = open(FILE_NAME, O_CREAT|O_RDWR|O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
     	    if (file_fd == FAILURE)
     	    {
-    	        syslog(LOG_ERR, "ERROR: Failed to create/open file");
+    	        syslog(LOG_ERR, "ERROR: Failed to create/open file %s", FILE_NAME);
+    	        perror("FAILED TO CREATE/OPEN FILE");
     	        node->thread_status = false;
     	        goto thread_exit;
     	    }
@@ -430,11 +442,12 @@ void *updatedata_thread(void *socket_node)
 		node->thread_status = false;
 		goto thread_exit;
 	    }
-
-    	    // Set file pos to begining of file
-    	    off_t offset = lseek(file_fd, 0, SEEK_SET);
-    	    if (-1 == offset)
-    	    {
+	    
+	    close(file_fd);
+            file_fd = open(FILE_NAME, O_RDONLY, S_IRUSR | S_IRGRP | S_IROTH);
+            if (FAILURE == file_fd)
+            {
+                syslog(LOG_ERR, "Error opening %s file: %s", FILE_NAME, strerror(errno));  
     	        syslog(LOG_ERR, "ERROR: Failed to SET file offset");
     	        node->thread_status = false;
     	        goto thread_exit;
@@ -449,7 +462,7 @@ void *updatedata_thread(void *socket_node)
     	        bytes_read = read(file_fd, buffer, BUFF_MAX);
     	        if (bytes_read == -1)
     	        {
-    	            	syslog(LOG_ERR, "ERROR: Failed to read from %s file", aesddata_file);
+    	            	syslog(LOG_ERR, "ERROR: Failed to read data from %s file", FILE_NAME);
    		    	node->thread_status = false;
               		goto thread_exit;
             	}
@@ -468,7 +481,7 @@ void *updatedata_thread(void *socket_node)
                 	}
                 	node->thread_status = true;
             	}
-            }while (send_bytes != bytes_read);
+            }while (bytes_read > 0);
 
             if(final_buffer != NULL)
             {
@@ -601,6 +614,7 @@ int main(int argc, char *argv[])
     	}
 	syslog(LOG_INFO, "listen() : listening for client");
 	
+	#if (USE_AESD_CHAR_DEVICE == 0)
 	// Node for timestamp thread
     	data_ptr = (socket_data_t *)malloc(sizeof(socket_data_t));
     	if (data_ptr == NULL)
@@ -623,6 +637,7 @@ int main(int argc, char *argv[])
         	goto exit;
     	} 
     	SLIST_INSERT_HEAD(&head, data_ptr, next_node);
+    	#endif
 
     	
     	//Receives the data until a packet is completely received, write data into aesddata file location
@@ -676,7 +691,6 @@ int main(int argc, char *argv[])
 
 	exit:
     		cleanup(socketfd);
-    		pthread_mutex_destroy(&thread_mutex);
     		while (!SLIST_EMPTY(&head))
     		{
         		data_ptr = SLIST_FIRST(&head);
@@ -685,6 +699,7 @@ int main(int argc, char *argv[])
         		free(data_ptr);
         		data_ptr = NULL;
     		}
+    		pthread_mutex_destroy(&thread_mutex);
 
     return status;
 }
