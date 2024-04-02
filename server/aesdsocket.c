@@ -23,18 +23,26 @@
 #include <pthread.h>
 #include "queue.h"
 #include <time.h>
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 #define USE_AESD_CHAR_DEVICE   (1)
+
 #if (USE_AESD_CHAR_DEVICE == 0)
     #define FILE_NAME           "/var/tmp/aesdsocketdata"
 #elif (USE_AESD_CHAR_DEVICE == 1)
     #define FILE_NAME           "/dev/aesdchar"
 #endif
+
+#if (USE_AESD_CHAR_DEVICE == 1)
+    const char *ioctl_ipstr = "AESDCHAR_IOCSEEKTO:";
+#endif
+
 #define PORT         	"9000"
 #define BUFF_MAX   	1024
 #define FAILURE	(-1)
 #define SUCCESS	(0)
 #define DELAY		(10)
+#define DRIVER_INPUT_COUNT	(2)
 
 int exit_condition_flag = 0;
 int daemonize = 0;
@@ -397,6 +405,27 @@ void *updatedata_thread(void *socket_node)
     	            node->thread_status = false;
     	            goto thread_exit;
     	        }
+    	        
+#if (USE_AESD_CHAR_DEVICE == 1)
+    		if (strncmp(buffer, ioctl_ipstr, strlen(ioctl_ipstr)) == SUCCESS)
+    		{
+        		struct aesd_seekto seek_data;
+        		if (DRIVER_INPUT_COUNT != sscanf(buffer, "AESDCHAR_IOCSEEKTO:%d,%d", &seek_data.write_cmd,
+                                           	&seek_data.write_cmd_offset))
+        		{
+            			syslog(LOG_PERROR, "sscanf: %s", strerror(errno));
+        		}
+        		else
+        		{
+            			if(SUCCESS != ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seek_data))
+            			{
+                			syslog(LOG_PERROR, "ioctl: %s", strerror(errno));
+            			}
+        		}
+        		goto driver_data_read;
+    		}
+#endif
+    	        
     	        else if (recv_bytes > 0)
     	        {
     	            new_len += 1;
@@ -443,6 +472,7 @@ void *updatedata_thread(void *socket_node)
 		goto thread_exit;
 	    }
 	    
+#if (USE_AESD_CHAR_DEVICE == 0)
 	    close(file_fd);
             file_fd = open(FILE_NAME, O_RDONLY, S_IRUSR | S_IRGRP | S_IROTH);
             if (FAILURE == file_fd)
@@ -452,10 +482,12 @@ void *updatedata_thread(void *socket_node)
     	        node->thread_status = false;
     	        goto thread_exit;
     	    }
+#endif
 
     	    int send_bytes = 0;
     	    int bytes_read = 0;
 
+	driver_data_read:
     	    do
     	    {
     	        memset(buffer, 0, BUFF_MAX);
