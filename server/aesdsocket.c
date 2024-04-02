@@ -413,20 +413,20 @@ void *updatedata_thread(void *socket_node)
         		if (DRIVER_INPUT_COUNT != sscanf(buffer, "AESDCHAR_IOCSEEKTO:%d,%d", &seek_data.write_cmd,
                                            	&seek_data.write_cmd_offset))
         		{
-            			syslog(LOG_PERROR, "sscanf: %s", strerror(errno));
+            			syslog(LOG_PERROR, "ERROR: sscanf: %s", strerror(errno));
         		}
         		else
         		{
             			if(SUCCESS != ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seek_data))
             			{
-                			syslog(LOG_PERROR, "ioctl: %s", strerror(errno));
+                			syslog(LOG_PERROR, "ERROR: ioctl: %s", strerror(errno));
             			}
         		}
         		goto driver_data_read;
     		}
 #endif
     	        
-    	        else if (recv_bytes > 0)
+    	        if (recv_bytes > 0)
     	        {
     	            new_len += 1;
     	            char *tmp_buf = realloc(final_buffer, new_len);
