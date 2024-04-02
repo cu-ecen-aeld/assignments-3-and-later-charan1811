@@ -409,6 +409,7 @@ void *updatedata_thread(void *socket_node)
 #if (USE_AESD_CHAR_DEVICE == 1)
     		if (strncmp(buffer, ioctl_ipstr, strlen(ioctl_ipstr)) == SUCCESS)
     		{
+    			printf("checking count\n");
         		struct aesd_seekto seek_data;
         		if (DRIVER_INPUT_COUNT != sscanf(buffer, "AESDCHAR_IOCSEEKTO:%d,%d", &seek_data.write_cmd,
                                            	&seek_data.write_cmd_offset))
@@ -417,6 +418,7 @@ void *updatedata_thread(void *socket_node)
         		}
         		else
         		{
+        			printf("calling ioctl\n");
             			if(SUCCESS != ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seek_data))
             			{
                 			syslog(LOG_PERROR, "ERROR: ioctl: %s", strerror(errno));

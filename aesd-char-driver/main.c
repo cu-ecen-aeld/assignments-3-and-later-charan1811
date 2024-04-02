@@ -20,6 +20,8 @@
 #include <linux/uaccess.h>
 #include <linux/fs.h> // file_operations
 #include "aesdchar.h"
+#include "aesd_ioctl.h"
+
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
 
@@ -173,12 +175,153 @@ exit:
     mutex_unlock(&dev_aesd->lock);
     return retval;
 }
+
+loff_t aesd_llseek(struct file *filp, loff_t offset, int whence)
+{
+    if ((NULL == filp))
+    {
+        PDEBUG("ERROR: aesd_read invalid arguments");
+        return -EINVAL;
+    }
+    
+    struct aesd_dev *dev_aesd = NULL;
+    loff_t buff_size = 0;
+    uint8_t buff_index = 0;
+    struct aesd_buffer_entry *buff_start = NULL;
+    loff_t new_offset = 0;
+    loff_t retval = 0;
+
+    dev_aesd = filp->private_data;
+    
+    if (!dev_aesd)
+    {
+        PDEBUG("ERROR: private data access");
+        return -EPERM;
+    }
+    
+    if (mutex_lock_interruptible(&dev_aesd->lock))
+    {
+        PDEBUG("ERROR: mutex_lock_interruptible acquiring lock");
+        return -ERESTARTSYS;
+    }
+    
+    AESD_CIRCULAR_BUFFER_FOREACH(buff_start, &dev_aesd->buffer, buff_index)
+    {
+       buff_size += buff_start->size;
+    }
+    
+    new_offset = fixed_size_llseek(filp, offset, whence, buff_size);
+    
+    if(new_offset < 0)
+    {
+    	retval = -EINVAL;
+    }
+    else
+    {
+    	filp->f_pos = new_offset;
+    	retval = new_offset;
+    }
+    
+    mutex_unlock(&dev_aesd->lock);
+    
+    return retval;   
+}
+
+
+static long aesd_adjust_file_offset(struct file *filp, unsigned int write_cmd, unsigned int write_cmd_offset)
+{
+    if (filp == NULL)
+    {
+        PDEBUG("ERROR: Input file pointer is NULL");
+        return -EINVAL;
+    }
+    
+    struct aesd_dev *dev_aesd = NULL;
+    long ret_val = 0;
+    uint8_t buff_size = 0;
+    struct aesd_buffer_entry *buff_start = NULL;
+
+    dev_aesd = filp->private_data;
+
+    if (mutex_lock_interruptible(&dev_aesd->lock) != 0)
+    {
+        PDEBUG("ERROR: Unable to acquire mutex lock");
+        return -ERESTARTSYS;
+    }
+    
+    AESD_CIRCULAR_BUFFER_FOREACH(buff_start, &aesd_device.buffer, buff_size)
+    {
+    }
+
+    if ( (write_cmd > buff_size) || (write_cmd > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) ||
+         (write_cmd_offset >= dev_aesd->buffer.entry[write_cmd].size) )
+    {
+        ret_val = -EINVAL;
+        goto end;
+    }
+
+    unsigned int index = 0;
+    for(index = 0; index < write_cmd; index++)
+    {
+        filp->f_pos += dev_aesd->buffer.entry[index].size;
+    }
+
+    filp->f_pos += write_cmd_offset;
+
+end:
+    mutex_unlock(&dev_aesd->lock);
+    return ret_val;
+}
+
+long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    if (!filp)
+    {
+        return -EINVAL;
+    }
+
+    if (_IOC_TYPE(cmd) != AESD_IOC_MAGIC)
+    {
+        return -ENOTTY;
+    }
+    if (_IOC_NR(cmd) > AESDCHAR_IOC_MAXNR)
+    {
+ 	return -ENOTTY;
+    }
+    
+    long ret_val =0;
+
+	switch(cmd)
+	{
+		case AESDCHAR_IOCSEEKTO:
+		{
+		    struct aesd_seekto seekto;
+		    if(copy_from_user(&seekto, (const void __user *)arg, sizeof(seekto)) != 0)
+		    {
+		        ret_val = -EFAULT;
+		    }
+		    else
+		    {
+		        ret_val = aesd_adjust_file_offset(filp, seekto.write_cmd, seekto.write_cmd_offset);
+		    }
+		    break;
+		}
+
+		default:  
+		    	return -ENOTTY;
+    }
+    
+    return ret_val;
+}
+
 struct file_operations aesd_fops = {
-    .owner =    THIS_MODULE,
-    .read =     aesd_read,
-    .write =    aesd_write,
-    .open =     aesd_open,
-    .release =  aesd_release,
+    .owner = THIS_MODULE,
+    .read = aesd_read,
+    .write = aesd_write,
+    .open = aesd_open,
+    .release = aesd_release,
+    .llseek = aesd_llseek,
+    .unlocked_ioctl = aesd_ioctl
 };
 
 static int aesd_setup_cdev(struct aesd_dev *dev)
